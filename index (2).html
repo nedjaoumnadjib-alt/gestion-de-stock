@@ -1,0 +1,1333 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>StockBase — Gestion de stock</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jsbarcode/3.11.6/JsBarcode.all.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
+<style>
+  :root{
+    --ink:#1c2521;
+    --paper:#f6f4ee;
+    --paper2:#ffffff;
+    --line:#d8d4c8;
+    --line-strong:#b8b2a0;
+    --accent:#1d6e56;
+    --accent-soft:#e1f0ea;
+    --accent-deep:#0f4537;
+    --warn:#b5651d;
+    --warn-soft:#fbe9da;
+    --danger:#a32d2d;
+    --danger-soft:#fcebeb;
+    --muted:#74726a;
+    --mono: 'IBM Plex Mono', 'Courier New', monospace;
+    --sans: 'Inter', -apple-system, Segoe UI, Roboto, sans-serif;
+    --radius:6px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    font-family:var(--sans);
+    background:var(--paper);
+    color:var(--ink);
+    -webkit-font-smoothing:antialiased;
+  }
+  @font-face{font-family:'Inter';src:local('Inter');}
+
+  /* ===== LOGIN SCREEN ===== */
+  #login-screen{
+    min-height:100vh;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:24px;
+  }
+  .login-card{
+    width:100%;
+    max-width:380px;
+    background:var(--paper2);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:36px 32px;
+  }
+  .login-mark{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    margin-bottom:28px;
+  }
+  .login-mark .barcode-icon{
+    width:34px;height:34px;
+    border:2px solid var(--ink);
+    display:flex;align-items:center;justify-content:center;
+    border-radius:4px;
+    flex-shrink:0;
+  }
+  .login-mark .barcode-icon svg{width:20px;height:20px;}
+  .login-mark h1{
+    font-size:19px;font-weight:600;margin:0;letter-spacing:-0.01em;
+  }
+  .login-mark p{margin:0;font-size:12px;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;}
+
+  .field{margin-bottom:16px;}
+  .field label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px;font-weight:500;}
+  .field input, .field select{
+    width:100%;
+    padding:10px 12px;
+    border:1px solid var(--line-strong);
+    border-radius:4px;
+    font-size:14px;
+    font-family:var(--sans);
+    background:var(--paper2);
+    color:var(--ink);
+  }
+  .field input:focus, .field select:focus{
+    outline:2px solid var(--accent);
+    outline-offset:1px;
+    border-color:var(--accent);
+  }
+  .btn{
+    display:inline-flex;align-items:center;justify-content:center;gap:6px;
+    padding:10px 16px;
+    border:1px solid var(--ink);
+    border-radius:4px;
+    background:var(--ink);
+    color:var(--paper);
+    font-size:14px;font-weight:500;
+    font-family:var(--sans);
+    cursor:pointer;
+    transition:opacity .15s;
+    text-decoration:none;
+  }
+  .btn:hover{opacity:.85;}
+  .btn:active{transform:scale(.98);}
+  .btn-block{width:100%;}
+  .btn-outline{
+    background:transparent;color:var(--ink);border:1px solid var(--line-strong);
+  }
+  .btn-accent{background:var(--accent);border-color:var(--accent);color:#fff;}
+  .btn-danger{background:transparent;border-color:var(--danger);color:var(--danger);}
+  .btn-sm{padding:6px 10px;font-size:12px;}
+
+  .login-demo{
+    margin-top:20px;padding-top:16px;border-top:1px solid var(--line);
+    font-size:12px;color:var(--muted);line-height:1.6;
+  }
+  .login-demo strong{color:var(--ink);font-family:var(--mono);}
+  .login-demo .demo-row{display:flex;justify-content:space-between;gap:8px;cursor:pointer;padding:4px 0;}
+  .login-demo .demo-row:hover{color:var(--accent);}
+  .error-msg{
+    background:var(--danger-soft);color:var(--danger);
+    padding:8px 12px;border-radius:4px;font-size:13px;margin-bottom:14px;
+    display:none;
+  }
+
+  /* ===== APP SHELL ===== */
+  #app{display:none; min-height:100vh; flex-direction:column;}
+  header.topbar{
+    background:var(--paper2);
+    border-bottom:1px solid var(--line);
+    padding:14px 20px;
+    display:flex;align-items:center;justify-content:space-between;
+    position:sticky;top:0;z-index:30;
+  }
+  .topbar-left{display:flex;align-items:center;gap:12px;}
+  .topbar-left .mark{
+    width:30px;height:30px;border:2px solid var(--ink);border-radius:4px;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .topbar-left .mark svg{width:18px;height:18px;}
+  .topbar-left h1{font-size:16px;font-weight:600;margin:0;letter-spacing:-0.01em;}
+  .topbar-right{display:flex;align-items:center;gap:10px;}
+  .user-chip{
+    display:flex;align-items:center;gap:8px;
+    font-size:13px;color:var(--muted);
+    padding:6px 10px;border:1px solid var(--line);border-radius:4px;
+  }
+  .role-badge{
+    font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;
+    padding:2px 7px;border-radius:3px;
+  }
+  .role-admin{background:var(--accent-soft);color:var(--accent-deep);}
+  .role-user{background:var(--warn-soft);color:var(--warn);}
+
+  nav.tabs{
+    display:flex;gap:2px;
+    background:var(--paper2);
+    border-bottom:1px solid var(--line);
+    padding:0 20px;
+    overflow-x:auto;
+  }
+  nav.tabs button{
+    border:none;background:transparent;
+    padding:13px 16px;font-size:13px;font-weight:500;color:var(--muted);
+    cursor:pointer;white-space:nowrap;
+    border-bottom:2px solid transparent;
+    font-family:var(--sans);
+  }
+  nav.tabs button.active{color:var(--ink);border-bottom-color:var(--accent);}
+  nav.tabs button:hover{color:var(--ink);}
+
+  main{flex:1;padding:24px 20px 60px;max-width:1100px;width:100%;margin:0 auto;}
+
+  .page{display:none;}
+  .page.active{display:block;}
+
+  h2.page-title{font-size:20px;font-weight:600;margin:0 0 4px;letter-spacing:-0.01em;}
+  .page-sub{color:var(--muted);font-size:13px;margin:0 0 22px;}
+
+  /* metric cards */
+  .metrics{
+    display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));
+    gap:12px;margin-bottom:24px;
+  }
+  .metric-card{
+    background:var(--paper2);border:1px solid var(--line);border-radius:var(--radius);
+    padding:16px 18px;
+  }
+  .metric-card .m-label{font-size:12px;color:var(--muted);margin:0 0 6px;text-transform:uppercase;letter-spacing:.05em;}
+  .metric-card .m-value{font-size:26px;font-weight:600;margin:0;letter-spacing:-0.01em;}
+  .metric-card .m-value.warn{color:var(--warn);}
+  .metric-card .m-value.danger{color:var(--danger);}
+
+  /* toolbar */
+  .toolbar{
+    display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;align-items:center;
+  }
+  .toolbar input[type=search], .toolbar select{
+    padding:9px 12px;border:1px solid var(--line-strong);border-radius:4px;
+    font-size:13px;font-family:var(--sans);background:var(--paper2);color:var(--ink);
+  }
+  .toolbar input[type=search]{flex:1;min-width:160px;}
+  .spacer{flex:1;}
+
+  /* table */
+  .table-wrap{
+    background:var(--paper2);border:1px solid var(--line);border-radius:var(--radius);
+    overflow-x:auto;
+  }
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  th{
+    text-align:left;padding:11px 14px;font-size:11px;text-transform:uppercase;
+    letter-spacing:.06em;color:var(--muted);font-weight:600;
+    border-bottom:1px solid var(--line);white-space:nowrap;
+  }
+  td{padding:11px 14px;border-bottom:1px solid var(--line);vertical-align:middle;}
+  tr:last-child td{border-bottom:none;}
+  tr.low-stock td:first-child{box-shadow: inset 3px 0 0 var(--warn);}
+  tr.out-stock td:first-child{box-shadow: inset 3px 0 0 var(--danger);}
+  .qty-badge{
+    display:inline-flex;align-items:center;justify-content:center;
+    font-family:var(--mono);font-weight:600;font-size:13px;
+    min-width:36px;padding:3px 8px;border-radius:4px;
+    background:var(--accent-soft);color:var(--accent-deep);
+  }
+  .qty-badge.warn{background:var(--warn-soft);color:var(--warn);}
+  .qty-badge.danger{background:var(--danger-soft);color:var(--danger);}
+  .sku{font-family:var(--mono);font-size:12px;color:var(--muted);}
+  .empty-row{padding:40px 14px;text-align:center;color:var(--muted);font-size:13px;}
+
+  .actions-cell{display:flex;gap:6px;}
+  .icon-btn{
+    border:1px solid var(--line);background:var(--paper2);border-radius:4px;
+    width:30px;height:30px;display:flex;align-items:center;justify-content:center;
+    cursor:pointer;color:var(--muted);
+  }
+  .icon-btn:hover{color:var(--ink);border-color:var(--line-strong);}
+  .icon-btn svg{width:15px;height:15px;}
+
+  /* modal */
+  .modal-overlay{
+    display:none;position:fixed;top:0;left:0;right:0;bottom:0;
+    background:rgba(28,37,33,.4);z-index:100;
+    align-items:center;justify-content:center;padding:20px;
+  }
+  .modal-overlay.open{display:flex;}
+  .modal{
+    background:var(--paper2);border-radius:var(--radius);
+    max-width:480px;width:100%;max-height:90vh;overflow-y:auto;
+    border:1px solid var(--line);
+  }
+  .modal-head{
+    padding:18px 22px;border-bottom:1px solid var(--line);
+    display:flex;align-items:center;justify-content:space-between;
+  }
+  .modal-head h3{margin:0;font-size:16px;font-weight:600;}
+  .modal-body{padding:22px;}
+  .modal-foot{padding:16px 22px;border-top:1px solid var(--line);display:flex;justify-content:flex-end;gap:8px;}
+  .close-x{background:none;border:none;cursor:pointer;color:var(--muted);font-size:18px;line-height:1;padding:0;}
+
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+  @media (max-width:520px){.grid2{grid-template-columns:1fr;}}
+
+  /* barcode display */
+  .barcode-box{
+    background:#fff;border:1px solid var(--line);border-radius:4px;
+    padding:14px;text-align:center;margin-top:10px;
+  }
+  .barcode-box svg{max-width:100%;}
+  .barcode-box .code-text{font-family:var(--mono);font-size:13px;letter-spacing:.1em;color:var(--ink);margin-top:4px;}
+
+  /* scanner */
+  #scanner-wrap{
+    background:#000;border-radius:var(--radius);overflow:hidden;
+    aspect-ratio:1/1;max-width:340px;margin:0 auto;position:relative;
+  }
+  #qr-reader{width:100%;height:100%;}
+  .scan-result-card{
+    background:var(--accent-soft);border:1px solid var(--accent);border-radius:var(--radius);
+    padding:16px;margin-top:14px;
+  }
+  .scan-result-card .sr-name{font-weight:600;font-size:15px;margin:0 0 4px;}
+  .scan-result-card .sr-meta{font-size:12px;color:var(--accent-deep);font-family:var(--mono);}
+  .scan-not-found{
+    background:var(--danger-soft);border:1px solid var(--danger);color:var(--danger);
+    border-radius:var(--radius);padding:14px;margin-top:14px;font-size:13px;
+  }
+
+  .qty-stepper{display:flex;align-items:center;gap:8px;}
+  .qty-stepper button{
+    width:34px;height:34px;border:1px solid var(--line-strong);background:var(--paper2);
+    border-radius:4px;font-size:16px;cursor:pointer;color:var(--ink);
+  }
+  .qty-stepper input{width:70px;text-align:center;}
+
+  textarea{
+    width:100%;padding:10px 12px;border:1px solid var(--line-strong);border-radius:4px;
+    font-family:var(--sans);font-size:14px;resize:vertical;min-height:60px;
+    background:var(--paper2);color:var(--ink);
+  }
+
+  .movement-type{
+    font-size:11px;font-weight:600;padding:3px 9px;border-radius:99px;letter-spacing:.04em;text-transform:uppercase;
+  }
+  .mv-in{background:var(--accent-soft);color:var(--accent-deep);}
+  .mv-out{background:var(--danger-soft);color:var(--danger);}
+  .mv-adjust{background:var(--warn-soft);color:var(--warn);}
+
+  .empty-state{
+    text-align:center;padding:60px 20px;color:var(--muted);
+  }
+  .empty-state svg{width:42px;height:42px;margin-bottom:12px;opacity:.5;}
+  .empty-state p{margin:0;font-size:14px;}
+
+  .form-hint{font-size:11px;color:var(--muted);margin-top:4px;}
+
+  .toast{
+    position:fixed;bottom:24px;left:50%;transform:translateX(-50%);
+    background:var(--ink);color:var(--paper);padding:11px 20px;border-radius:6px;
+    font-size:13px;z-index:200;display:none;font-weight:500;
+  }
+  .toast.show{display:block;}
+
+  .users-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;}
+  .user-card{
+    background:var(--paper2);border:1px solid var(--line);border-radius:var(--radius);
+    padding:14px 16px;display:flex;align-items:center;justify-content:space-between;gap:10px;
+  }
+  .user-card .u-name{font-weight:500;font-size:14px;margin:0;}
+  .user-card .u-mail{font-size:12px;color:var(--muted);margin:2px 0 0;}
+
+  .admin-only{display:none;}
+  .role-admin-active .admin-only{display:initial;}
+
+  @media (max-width:640px){
+    main{padding:18px 14px 60px;}
+    .topbar-left h1{display:none;}
+    nav.tabs button{padding:12px 12px;font-size:12.5px;}
+  }
+</style>
+</head>
+<body>
+
+<!-- ============ LOGIN ============ -->
+<div id="login-screen">
+  <div class="login-card">
+    <div class="login-mark">
+      <div class="barcode-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 5v14M7 5v14M11 5v14M13 5v14M17 5v14M21 5v14" stroke-linecap="round"/></svg>
+      </div>
+      <div>
+        <h1>StockBase</h1>
+        <p>Gestion de stock</p>
+      </div>
+    </div>
+
+    <div class="error-msg" id="login-error">Identifiants incorrects.</div>
+
+    <div class="field">
+      <label for="login-email">Adresse e-mail</label>
+      <input type="email" id="login-email" placeholder="vous@entreprise.com" autocomplete="username">
+    </div>
+    <div class="field">
+      <label for="login-pass">Mot de passe</label>
+      <input type="password" id="login-pass" placeholder="••••••••" autocomplete="current-password">
+    </div>
+    <button class="btn btn-accent btn-block" onclick="login()">Se connecter</button>
+
+    <div class="login-demo">
+      <div style="margin-bottom:6px;font-weight:500;color:var(--ink);">Comptes de démonstration (cliquer pour remplir)</div>
+      <div class="demo-row" onclick="fillLogin('admin@stockbase.com','admin123')">
+        <span>Administrateur</span><strong>admin@stockbase.com / admin123</strong>
+      </div>
+      <div class="demo-row" onclick="fillLogin('agent@stockbase.com','user123')">
+        <span>Agent de stock</span><strong>agent@stockbase.com / user123</strong>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ APP ============ -->
+<div id="app">
+  <header class="topbar">
+    <div class="topbar-left">
+      <div class="mark">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 5v14M7 5v14M11 5v14M13 5v14M17 5v14M21 5v14" stroke-linecap="round"/></svg>
+      </div>
+      <h1>StockBase</h1>
+    </div>
+    <div class="topbar-right">
+      <div class="user-chip">
+        <span id="current-user-name">—</span>
+        <span class="role-badge" id="current-user-role">—</span>
+      </div>
+      <button class="btn btn-outline btn-sm" onclick="logout()">Déconnexion</button>
+    </div>
+  </header>
+
+  <nav class="tabs" id="tabs">
+    <button class="active" onclick="showPage('dashboard')">Tableau de bord</button>
+    <button onclick="showPage('inventory')">Inventaire</button>
+    <button onclick="showPage('scan')">Scanner</button>
+    <button onclick="showPage('movements')">Mouvements</button>
+    <button class="admin-only" onclick="showPage('users')">Utilisateurs</button>
+  </nav>
+
+  <main>
+    <!-- DASHBOARD -->
+    <div class="page active" id="page-dashboard">
+      <h2 class="page-title">Tableau de bord</h2>
+      <p class="page-sub">Vue d'ensemble de votre stock en temps réel.</p>
+
+      <div class="metrics">
+        <div class="metric-card">
+          <p class="m-label">Articles référencés</p>
+          <p class="m-value" id="m-total-items">0</p>
+        </div>
+        <div class="metric-card">
+          <p class="m-label">Unités en stock</p>
+          <p class="m-value" id="m-total-units">0</p>
+        </div>
+        <div class="metric-card">
+          <p class="m-label">Stock faible</p>
+          <p class="m-value warn" id="m-low-stock">0</p>
+        </div>
+        <div class="metric-card">
+          <p class="m-label">Rupture de stock</p>
+          <p class="m-value danger" id="m-out-stock">0</p>
+        </div>
+      </div>
+
+      <h3 style="font-size:14px;font-weight:600;margin:0 0 10px;">Mouvements récents</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Date</th><th>Article</th><th>Type</th><th>Quantité</th><th>Par</th></tr></thead>
+          <tbody id="recent-movements-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- INVENTORY -->
+    <div class="page" id="page-inventory">
+      <h2 class="page-title">Inventaire</h2>
+      <p class="page-sub">Tous vos articles, avec code-barres généré automatiquement.</p>
+
+      <div class="toolbar">
+        <input type="search" id="inv-search" placeholder="Rechercher par nom, SKU ou code-barres…" oninput="renderInventory()">
+        <select id="inv-filter" onchange="renderInventory()">
+          <option value="all">Toutes les catégories</option>
+        </select>
+        <div class="spacer"></div>
+        <button class="btn btn-accent admin-only" onclick="openItemModal()">+ Nouvel article</button>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Article</th>
+              <th>SKU / Code-barres</th>
+              <th>Catégorie</th>
+              <th>Quantité</th>
+              <th>Emplacement</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="inventory-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- SCAN -->
+    <div class="page" id="page-scan">
+      <h2 class="page-title">Scanner un code-barres</h2>
+      <p class="page-sub">Utilisez la caméra de votre téléphone pour scanner un article et enregistrer une entrée ou une sortie.</p>
+
+      <div id="scanner-wrap">
+        <div id="qr-reader"></div>
+      </div>
+      <div style="text-align:center;margin-top:12px;">
+        <button class="btn btn-outline btn-sm" id="scan-toggle-btn" onclick="toggleScanner()">Démarrer la caméra</button>
+      </div>
+
+      <div id="scan-result"></div>
+
+      <div style="margin-top:28px;">
+        <h3 style="font-size:14px;font-weight:600;margin:0 0 8px;">Ou recherchez manuellement</h3>
+        <div class="toolbar">
+          <input type="search" id="manual-scan-input" placeholder="Saisir un SKU ou code-barres…" onkeydown="if(event.key==='Enter') manualLookup()">
+          <button class="btn btn-outline" onclick="manualLookup()">Rechercher</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MOVEMENTS -->
+    <div class="page" id="page-movements">
+      <h2 class="page-title">Mouvements de stock</h2>
+      <p class="page-sub">Historique complet des entrées, sorties et ajustements.</p>
+
+      <div class="toolbar">
+        <input type="search" id="mv-search" placeholder="Rechercher un article…" oninput="renderMovements()">
+        <select id="mv-filter" onchange="renderMovements()">
+          <option value="all">Tous les types</option>
+          <option value="in">Entrées</option>
+          <option value="out">Sorties</option>
+          <option value="adjust">Ajustements</option>
+        </select>
+        <div class="spacer"></div>
+        <button class="btn btn-accent" onclick="openMovementModal()">+ Nouveau mouvement</button>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Date</th><th>Article</th><th>SKU</th><th>Type</th><th>Quantité</th><th>Note</th><th>Par</th></tr>
+          </thead>
+          <tbody id="movements-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- USERS (admin only) -->
+    <div class="page" id="page-users">
+      <h2 class="page-title">Utilisateurs</h2>
+      <p class="page-sub">Gérez les comptes administrateurs et agents.</p>
+
+      <div class="toolbar">
+        <div class="spacer"></div>
+        <button class="btn btn-accent" onclick="openUserModal()">+ Nouvel utilisateur</button>
+      </div>
+
+      <div class="users-grid" id="users-grid"></div>
+    </div>
+  </main>
+</div>
+
+<!-- ============ MODAL: Item create/edit + barcode ============ -->
+<div class="modal-overlay" id="item-modal">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="item-modal-title">Nouvel article</h3>
+      <button class="close-x" onclick="closeModal('item-modal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="item-id">
+      <div class="field">
+        <label for="item-name">Nom de l'article</label>
+        <input type="text" id="item-name" placeholder="ex. Câble USB-C 1m">
+      </div>
+      <div class="grid2">
+        <div class="field">
+          <label for="item-sku">SKU</label>
+          <input type="text" id="item-sku" placeholder="ex. CBL-001">
+        </div>
+        <div class="field">
+          <label for="item-category">Catégorie</label>
+          <input type="text" id="item-category" placeholder="ex. Câbles" list="cat-list">
+          <datalist id="cat-list"></datalist>
+        </div>
+      </div>
+      <div class="grid2">
+        <div class="field">
+          <label for="item-qty">Quantité initiale</label>
+          <input type="number" id="item-qty" min="0" value="0">
+        </div>
+        <div class="field">
+          <label for="item-min">Seuil de stock faible</label>
+          <input type="number" id="item-min" min="0" value="5">
+        </div>
+      </div>
+      <div class="field">
+        <label for="item-location">Emplacement</label>
+        <input type="text" id="item-location" placeholder="ex. Étagère A2">
+      </div>
+      <div class="field">
+        <label for="item-barcode">Code-barres</label>
+        <input type="text" id="item-barcode" placeholder="généré automatiquement si vide">
+        <p class="form-hint">Laissez vide pour générer un code EAN-13 automatiquement.</p>
+      </div>
+      <div class="barcode-box" id="barcode-preview-box" style="display:none;">
+        <svg id="barcode-svg"></svg>
+        <div class="code-text" id="barcode-code-text"></div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-outline" onclick="closeModal('item-modal')">Annuler</button>
+      <button class="btn btn-accent" onclick="saveItem()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ MODAL: Movement ============ -->
+<div class="modal-overlay" id="movement-modal">
+  <div class="modal">
+    <div class="modal-head">
+      <h3>Nouveau mouvement de stock</h3>
+      <button class="close-x" onclick="closeModal('movement-modal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="field">
+        <label for="mv-item">Article</label>
+        <select id="mv-item" onchange="updateMovementStock()"></select>
+      </div>
+      <div class="field">
+        <label>Type de mouvement</label>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-outline btn-sm" id="mv-type-in" onclick="setMovementType('in')">Entrée (+)</button>
+          <button class="btn btn-outline btn-sm" id="mv-type-out" onclick="setMovementType('out')">Sortie (−)</button>
+          <button class="btn btn-outline btn-sm" id="mv-type-adjust" onclick="setMovementType('adjust')">Ajustement (=)</button>
+        </div>
+      </div>
+      <div class="field">
+        <label for="mv-qty">Quantité</label>
+        <div class="qty-stepper">
+          <button onclick="stepQty(-1)">−</button>
+          <input type="number" id="mv-qty" min="0" value="1">
+          <button onclick="stepQty(1)">+</button>
+        </div>
+        <p class="form-hint" id="mv-stock-info">Stock actuel : —</p>
+      </div>
+      <div class="field">
+        <label for="mv-note">Note (optionnel)</label>
+        <textarea id="mv-note" placeholder="ex. Réception fournisseur, commande client #123…"></textarea>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-outline" onclick="closeModal('movement-modal')">Annuler</button>
+      <button class="btn btn-accent" onclick="saveMovement()">Valider le mouvement</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ MODAL: User create ============ -->
+<div class="modal-overlay" id="user-modal">
+  <div class="modal">
+    <div class="modal-head">
+      <h3>Nouvel utilisateur</h3>
+      <button class="close-x" onclick="closeModal('user-modal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="field">
+        <label for="user-name">Nom complet</label>
+        <input type="text" id="user-name" placeholder="ex. Sarah Dubois">
+      </div>
+      <div class="field">
+        <label for="user-email">E-mail</label>
+        <input type="email" id="user-email" placeholder="sarah@entreprise.com">
+      </div>
+      <div class="field">
+        <label for="user-pass">Mot de passe</label>
+        <input type="text" id="user-pass" placeholder="mot de passe temporaire">
+      </div>
+      <div class="field">
+        <label for="user-role">Rôle</label>
+        <select id="user-role">
+          <option value="user">Agent de stock</option>
+          <option value="admin">Administrateur</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-outline" onclick="closeModal('user-modal')">Annuler</button>
+      <button class="btn btn-accent" onclick="saveUser()">Créer l'utilisateur</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ MODAL: Barcode view (large, for printing/scanning) ============ -->
+<div class="modal-overlay" id="barcode-modal">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="bc-modal-title">Code-barres</h3>
+      <button class="close-x" onclick="closeModal('barcode-modal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="barcode-box">
+        <svg id="bc-modal-svg"></svg>
+        <div class="code-text" id="bc-modal-text"></div>
+      </div>
+      <p class="form-hint" style="text-align:center;">Imprimez ou affichez ce code pour le scanner avec l'onglet "Scanner".</p>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-accent btn-block" onclick="printBarcode()">Imprimer</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ===================== DATA LAYER ===================== */
+
+let state = {
+  currentUser: null,
+  users: [
+    {id:'u1', name:'Karim Admin', email:'admin@stockbase.com', password:'admin123', role:'admin'},
+    {id:'u2', name:'Yasmine Agent', email:'agent@stockbase.com', password:'user123', role:'user'},
+  ],
+  items: [
+    {id:'i1', name:'Câble USB-C 1m', sku:'CBL-001', barcode:'6291041500213', category:'Câbles', qty:42, minQty:10, location:'Étagère A2'},
+    {id:'i2', name:'Chargeur secteur 20W', sku:'CHG-014', barcode:'6291041500220', category:'Chargeurs', qty:8, minQty:10, location:'Étagère A3'},
+    {id:'i3', name:'Souris sans fil', sku:'PER-022', barcode:'6291041500237', category:'Périphériques', qty:0, minQty:5, location:'Étagère B1'},
+    {id:'i4', name:'Écouteurs Bluetooth', sku:'AUD-005', barcode:'6291041500244', category:'Audio', qty:23, minQty:8, location:'Étagère B2'},
+    {id:'i5', name:'Coque de protection', sku:'ACC-030', barcode:'6291041500251', category:'Accessoires', qty:65, minQty:15, location:'Étagère C1'},
+    {id:'i6', name:'Batterie externe 10000mAh', sku:'PWR-009', barcode:'6291041500268', category:'Chargeurs', qty:4, minQty:6, location:'Étagère A3'},
+  ],
+  movements: [
+    {id:'m1', itemId:'i1', type:'in', qty:50, note:'Réception fournisseur', userName:'Karim Admin', date: daysAgo(6)},
+    {id:'m2', itemId:'i1', type:'out', qty:8, note:'Commande client #2245', userName:'Yasmine Agent', date: daysAgo(2)},
+    {id:'m3', itemId:'i2', type:'in', qty:20, note:'Réception fournisseur', userName:'Karim Admin', date: daysAgo(5)},
+    {id:'m4', itemId:'i2', type:'out', qty:12, note:'Vente boutique', userName:'Yasmine Agent', date: daysAgo(1)},
+    {id:'m5', itemId:'i3', type:'out', qty:5, note:'Vente boutique', userName:'Yasmine Agent', date: daysAgo(1)},
+    {id:'m6', itemId:'i5', type:'adjust', qty:65, note:'Inventaire physique', userName:'Karim Admin', date: daysAgo(0)},
+  ],
+};
+
+function daysAgo(n){
+  let d = new Date();
+  d.setDate(d.getDate()-n);
+  return d.toISOString();
+}
+
+function fmtDate(iso){
+  let d = new Date(iso);
+  return d.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric'}) + ' ' + d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+}
+
+function uid(prefix){
+  return prefix + '_' + Math.random().toString(36).slice(2,9);
+}
+
+/* ===================== AUTH ===================== */
+
+function fillLogin(email, pass){
+  document.getElementById('login-email').value = email;
+  document.getElementById('login-pass').value = pass;
+}
+
+function login(){
+  const email = document.getElementById('login-email').value.trim().toLowerCase();
+  const pass = document.getElementById('login-pass').value;
+  const user = state.users.find(u => u.email.toLowerCase() === email && u.password === pass);
+  const errEl = document.getElementById('login-error');
+  if(!user){
+    errEl.style.display = 'block';
+    return;
+  }
+  errEl.style.display = 'none';
+  state.currentUser = user;
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'flex';
+  document.getElementById('current-user-name').textContent = user.name;
+  const roleBadge = document.getElementById('current-user-role');
+  roleBadge.textContent = user.role === 'admin' ? 'Admin' : 'Agent';
+  roleBadge.className = 'role-badge ' + (user.role === 'admin' ? 'role-admin' : 'role-user');
+  document.body.classList.toggle('role-admin-active', user.role === 'admin');
+  renderAll();
+}
+
+function logout(){
+  state.currentUser = null;
+  stopScanner();
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('login-email').value = '';
+  document.getElementById('login-pass').value = '';
+}
+
+/* ===================== NAVIGATION ===================== */
+
+function showPage(name){
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('nav.tabs button').forEach(b => b.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+  const idx = ['dashboard','inventory','scan','movements','users'].indexOf(name);
+  document.querySelectorAll('nav.tabs button')[idx].classList.add('active');
+  if(name !== 'scan') stopScanner();
+  if(name === 'users') renderUsers();
+}
+
+/* ===================== RENDER: DASHBOARD ===================== */
+
+function renderAll(){
+  renderDashboard();
+  renderInventory();
+  renderMovements();
+  populateMovementItemSelect();
+  populateCategoryFilter();
+  if(state.currentUser && state.currentUser.role === 'admin') renderUsers();
+}
+
+function renderDashboard(){
+  const totalItems = state.items.length;
+  const totalUnits = state.items.reduce((s,i)=>s+i.qty,0);
+  const lowStock = state.items.filter(i=>i.qty>0 && i.qty<=i.minQty).length;
+  const outStock = state.items.filter(i=>i.qty===0).length;
+
+  document.getElementById('m-total-items').textContent = totalItems;
+  document.getElementById('m-total-units').textContent = totalUnits.toLocaleString('fr-FR');
+  document.getElementById('m-low-stock').textContent = lowStock;
+  document.getElementById('m-out-stock').textContent = outStock;
+
+  const sorted = [...state.movements].sort((a,b)=> new Date(b.date)-new Date(a.date)).slice(0,6);
+  const body = document.getElementById('recent-movements-body');
+  body.innerHTML = '';
+  if(sorted.length===0){
+    body.innerHTML = `<tr><td colspan="5" class="empty-row">Aucun mouvement enregistré.</td></tr>`;
+    return;
+  }
+  sorted.forEach(mv=>{
+    const item = state.items.find(i=>i.id===mv.itemId);
+    body.innerHTML += `<tr>
+      <td>${fmtDate(mv.date)}</td>
+      <td>${item ? item.name : '—'}</td>
+      <td>${movementTypeLabel(mv.type)}</td>
+      <td>${movementQtyLabel(mv)}</td>
+      <td>${mv.userName}</td>
+    </tr>`;
+  });
+}
+
+function movementTypeLabel(type){
+  if(type==='in') return '<span class="movement-type mv-in">Entrée</span>';
+  if(type==='out') return '<span class="movement-type mv-out">Sortie</span>';
+  return '<span class="movement-type mv-adjust">Ajustement</span>';
+}
+
+function movementQtyLabel(mv){
+  if(mv.type==='in') return '+' + mv.qty;
+  if(mv.type==='out') return '−' + mv.qty;
+  return '= ' + mv.qty;
+}
+
+/* ===================== RENDER: INVENTORY ===================== */
+
+function populateCategoryFilter(){
+  const cats = [...new Set(state.items.map(i=>i.category))].sort();
+  const sel = document.getElementById('inv-filter');
+  const current = sel.value;
+  sel.innerHTML = '<option value="all">Toutes les catégories</option>';
+  cats.forEach(c=> sel.innerHTML += `<option value="${c}">${c}</option>`);
+  sel.value = current && cats.includes(current) ? current : 'all';
+
+  const dl = document.getElementById('cat-list');
+  dl.innerHTML = cats.map(c=>`<option value="${c}">`).join('');
+}
+
+function renderInventory(){
+  const search = document.getElementById('inv-search').value.trim().toLowerCase();
+  const filter = document.getElementById('inv-filter').value;
+  const body = document.getElementById('inventory-body');
+  const isAdmin = state.currentUser && state.currentUser.role === 'admin';
+
+  let items = state.items.filter(i=>{
+    const matchSearch = !search || i.name.toLowerCase().includes(search) || i.sku.toLowerCase().includes(search) || i.barcode.includes(search);
+    const matchCat = filter === 'all' || i.category === filter;
+    return matchSearch && matchCat;
+  });
+
+  body.innerHTML = '';
+  if(items.length===0){
+    body.innerHTML = `<tr><td colspan="6" class="empty-row">Aucun article ne correspond à votre recherche.</td></tr>`;
+    return;
+  }
+
+  items.forEach(item=>{
+    let rowClass = '';
+    let badgeClass = '';
+    if(item.qty===0){ rowClass='out-stock'; badgeClass='danger'; }
+    else if(item.qty<=item.minQty){ rowClass='low-stock'; badgeClass='warn'; }
+
+    body.innerHTML += `<tr class="${rowClass}">
+      <td><strong>${item.name}</strong></td>
+      <td><span class="sku">${item.sku} · ${item.barcode}</span></td>
+      <td>${item.category}</td>
+      <td><span class="qty-badge ${badgeClass}">${item.qty}</span></td>
+      <td>${item.location}</td>
+      <td>
+        <div class="actions-cell">
+          <button class="icon-btn" title="Voir le code-barres" onclick="viewBarcode('${item.id}')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 5v14M7 5v14M11 5v14M13 5v14M17 5v14M21 5v14" stroke-linecap="round"/></svg>
+          </button>
+          ${isAdmin ? `
+          <button class="icon-btn" title="Modifier" onclick="openItemModal('${item.id}')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" stroke-linecap="round" stroke-linejoin="round"/><path d="M18.5 2.5a2.121 2.121 0 113 3L12 15l-4 1 1-4 9.5-9.5z" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <button class="icon-btn" title="Supprimer" onclick="deleteItem('${item.id}')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14z" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>` : ''}
+        </div>
+      </td>
+    </tr>`;
+  });
+}
+
+/* ===================== ITEM MODAL / BARCODE GEN ===================== */
+
+function generateBarcode(){
+  // EAN-13 style code starting with 629 (Algeria GS1 prefix) + random digits + check digit
+  let base = '629' + Math.floor(Math.random()*10**9).toString().padStart(9,'0');
+  let digits = base.split('').map(Number);
+  let sum = 0;
+  for(let i=0;i<12;i++){
+    sum += digits[i] * (i % 2 === 0 ? 1 : 3);
+  }
+  let check = (10 - (sum % 10)) % 10;
+  return base + check;
+}
+
+function openItemModal(itemId){
+  document.getElementById('item-modal-title').textContent = itemId ? "Modifier l'article" : "Nouvel article";
+  document.getElementById('item-id').value = itemId || '';
+  const previewBox = document.getElementById('barcode-preview-box');
+
+  if(itemId){
+    const item = state.items.find(i=>i.id===itemId);
+    document.getElementById('item-name').value = item.name;
+    document.getElementById('item-sku').value = item.sku;
+    document.getElementById('item-category').value = item.category;
+    document.getElementById('item-qty').value = item.qty;
+    document.getElementById('item-min').value = item.minQty;
+    document.getElementById('item-location').value = item.location;
+    document.getElementById('item-barcode').value = item.barcode;
+    drawBarcodeSvg('barcode-svg', item.barcode);
+    document.getElementById('barcode-code-text').textContent = item.barcode;
+    previewBox.style.display = 'block';
+  } else {
+    document.getElementById('item-name').value = '';
+    document.getElementById('item-sku').value = '';
+    document.getElementById('item-category').value = '';
+    document.getElementById('item-qty').value = 0;
+    document.getElementById('item-min').value = 5;
+    document.getElementById('item-location').value = '';
+    document.getElementById('item-barcode').value = '';
+    previewBox.style.display = 'none';
+  }
+
+  document.getElementById('item-modal').classList.add('open');
+}
+
+function drawBarcodeSvg(svgId, code){
+  try{
+    JsBarcode('#'+svgId, code, {
+      format: 'EAN13',
+      width: 2,
+      height: 60,
+      displayValue: false,
+      margin: 0,
+    });
+  }catch(e){
+    JsBarcode('#'+svgId, code, {
+      format: 'CODE128',
+      width: 2,
+      height: 60,
+      displayValue: false,
+      margin: 0,
+    });
+  }
+}
+
+function saveItem(){
+  const id = document.getElementById('item-id').value;
+  const name = document.getElementById('item-name').value.trim();
+  const sku = document.getElementById('item-sku').value.trim();
+  const category = document.getElementById('item-category').value.trim() || 'Divers';
+  const qty = parseInt(document.getElementById('item-qty').value) || 0;
+  const minQty = parseInt(document.getElementById('item-min').value) || 0;
+  const location = document.getElementById('item-location').value.trim();
+  let barcode = document.getElementById('item-barcode').value.trim();
+
+  if(!name || !sku){
+    showToast('Le nom et le SKU sont obligatoires.');
+    return;
+  }
+
+  if(!barcode){
+    barcode = generateBarcode();
+  }
+
+  if(id){
+    const item = state.items.find(i=>i.id===id);
+    Object.assign(item, {name, sku, category, qty, minQty, location, barcode});
+    showToast('Article mis à jour.');
+  } else {
+    state.items.push({id: uid('i'), name, sku, category, qty, minQty, location, barcode});
+    showToast('Article créé avec son code-barres.');
+  }
+
+  closeModal('item-modal');
+  renderInventory();
+  renderDashboard();
+  populateMovementItemSelect();
+  populateCategoryFilter();
+}
+
+function deleteItem(itemId){
+  if(!confirm('Supprimer cet article et son historique de mouvements ?')) return;
+  state.items = state.items.filter(i=>i.id!==itemId);
+  state.movements = state.movements.filter(m=>m.itemId!==itemId);
+  renderInventory();
+  renderDashboard();
+  renderMovements();
+  populateMovementItemSelect();
+  showToast('Article supprimé.');
+}
+
+/* ===================== BARCODE VIEW MODAL ===================== */
+
+function viewBarcode(itemId){
+  const item = state.items.find(i=>i.id===itemId);
+  document.getElementById('bc-modal-title').textContent = item.name;
+  drawBarcodeSvg('bc-modal-svg', item.barcode);
+  document.getElementById('bc-modal-text').textContent = item.sku + '  ·  ' + item.barcode;
+  document.getElementById('barcode-modal').classList.add('open');
+}
+
+function printBarcode(){
+  const svg = document.getElementById('bc-modal-svg').outerHTML;
+  const text = document.getElementById('bc-modal-text').textContent;
+  const title = document.getElementById('bc-modal-title').textContent;
+  const w = window.open('', '_blank');
+  w.document.write(`<html><head><title>${title}</title></head><body style="text-align:center;font-family:sans-serif;padding:40px;">
+    <h2>${title}</h2>${svg}<p style="font-family:monospace;letter-spacing:.1em;">${text}</p>
+    <script>window.onload=()=>window.print()<\/script>
+  </body></html>`);
+  w.document.close();
+}
+
+/* ===================== SCANNER ===================== */
+
+let html5QrCode = null;
+let scannerRunning = false;
+
+function toggleScanner(){
+  if(scannerRunning){
+    stopScanner();
+  } else {
+    startScanner();
+  }
+}
+
+function startScanner(){
+  const resultEl = document.getElementById('scan-result');
+  resultEl.innerHTML = '';
+  html5QrCode = new Html5Qrcode("qr-reader");
+  const config = { fps: 10, qrbox: { width: 220, height: 220 } };
+
+  html5QrCode.start(
+    { facingMode: "environment" },
+    config,
+    (decodedText) => {
+      onScanSuccess(decodedText);
+    },
+    (errorMessage) => { /* ignore per-frame errors */ }
+  ).then(()=>{
+    scannerRunning = true;
+    document.getElementById('scan-toggle-btn').textContent = 'Arrêter la caméra';
+  }).catch(err=>{
+    resultEl.innerHTML = `<div class="scan-not-found">Impossible d'accéder à la caméra : ${err}. Vérifiez les permissions de votre navigateur ou utilisez la recherche manuelle ci-dessous.</div>`;
+  });
+}
+
+function stopScanner(){
+  if(html5QrCode && scannerRunning){
+    html5QrCode.stop().then(()=>{
+      html5QrCode.clear();
+      scannerRunning = false;
+      document.getElementById('scan-toggle-btn').textContent = 'Démarrer la caméra';
+    }).catch(()=>{
+      scannerRunning = false;
+      document.getElementById('scan-toggle-btn').textContent = 'Démarrer la caméra';
+    });
+  }
+}
+
+function onScanSuccess(code){
+  // brief pause to avoid repeated scans
+  if(html5QrCode){
+    html5QrCode.pause(true);
+    setTimeout(()=>{ if(html5QrCode && scannerRunning) html5QrCode.resume(); }, 1500);
+  }
+  showScanResult(code);
+}
+
+function manualLookup(){
+  const code = document.getElementById('manual-scan-input').value.trim();
+  if(!code) return;
+  showScanResult(code);
+}
+
+function showScanResult(code){
+  const item = state.items.find(i => i.barcode === code || i.sku.toLowerCase() === code.toLowerCase());
+  const resultEl = document.getElementById('scan-result');
+  if(item){
+    let badgeClass = '';
+    if(item.qty===0) badgeClass='danger'; else if(item.qty<=item.minQty) badgeClass='warn';
+    resultEl.innerHTML = `<div class="scan-result-card">
+      <p class="sr-name">${item.name}</p>
+      <p class="sr-meta">${item.sku} · ${item.barcode} · ${item.category}</p>
+      <div style="margin:12px 0;"><span class="qty-badge ${badgeClass}">${item.qty} en stock</span> · ${item.location}</div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn btn-accent btn-sm" onclick="quickMovement('${item.id}','in')">+ Entrée</button>
+        <button class="btn btn-outline btn-sm" onclick="quickMovement('${item.id}','out')">− Sortie</button>
+      </div>
+    </div>`;
+  } else {
+    resultEl.innerHTML = `<div class="scan-not-found">Aucun article trouvé pour le code « ${code} ». Vérifiez le code ou créez un nouvel article dans l'Inventaire.</div>`;
+  }
+}
+
+function quickMovement(itemId, type){
+  openMovementModal();
+  document.getElementById('mv-item').value = itemId;
+  setMovementType(type);
+  updateMovementStock();
+}
+
+/* ===================== MOVEMENTS ===================== */
+
+function populateMovementItemSelect(){
+  const sel = document.getElementById('mv-item');
+  const current = sel.value;
+  sel.innerHTML = '';
+  state.items.forEach(i=>{
+    sel.innerHTML += `<option value="${i.id}">${i.name} (${i.sku})</option>`;
+  });
+  if(current) sel.value = current;
+  updateMovementStock();
+}
+
+let currentMovementType = 'in';
+
+function setMovementType(type){
+  currentMovementType = type;
+  ['in','out','adjust'].forEach(t=>{
+    const btn = document.getElementById('mv-type-'+t);
+    btn.classList.toggle('btn-accent', t===type);
+    btn.classList.toggle('btn-outline', t!==type);
+  });
+  updateMovementStock();
+}
+
+function updateMovementStock(){
+  const itemId = document.getElementById('mv-item').value;
+  const item = state.items.find(i=>i.id===itemId);
+  const info = document.getElementById('mv-stock-info');
+  if(!item){ info.textContent = 'Stock actuel : —'; return; }
+  if(currentMovementType === 'adjust'){
+    info.textContent = `Stock actuel : ${item.qty}. La quantité saisie remplacera ce nombre.`;
+    document.getElementById('mv-qty').value = item.qty;
+  } else {
+    info.textContent = `Stock actuel : ${item.qty}`;
+  }
+}
+
+function stepQty(delta){
+  const input = document.getElementById('mv-qty');
+  let val = parseInt(input.value) || 0;
+  val = Math.max(0, val + delta);
+  input.value = val;
+}
+
+function openMovementModal(){
+  if(state.items.length===0){
+    showToast('Ajoutez d\'abord un article à l\'inventaire.');
+    return;
+  }
+  populateMovementItemSelect();
+  setMovementType('in');
+  document.getElementById('mv-qty').value = 1;
+  document.getElementById('mv-note').value = '';
+  document.getElementById('movement-modal').classList.add('open');
+}
+
+function saveMovement(){
+  const itemId = document.getElementById('mv-item').value;
+  const qty = parseInt(document.getElementById('mv-qty').value);
+  const note = document.getElementById('mv-note').value.trim();
+  const item = state.items.find(i=>i.id===itemId);
+
+  if(!item || isNaN(qty) || qty < 0){
+    showToast('Veuillez saisir une quantité valide.');
+    return;
+  }
+
+  if(currentMovementType === 'out' && qty > item.qty){
+    showToast(`Stock insuffisant : seulement ${item.qty} unité(s) disponible(s).`);
+    return;
+  }
+
+  if(currentMovementType === 'in'){
+    item.qty += qty;
+  } else if(currentMovementType === 'out'){
+    item.qty -= qty;
+  } else {
+    item.qty = qty;
+  }
+
+  state.movements.push({
+    id: uid('m'),
+    itemId: item.id,
+    type: currentMovementType,
+    qty: qty,
+    note: note,
+    userName: state.currentUser.name,
+    date: new Date().toISOString(),
+  });
+
+  closeModal('movement-modal');
+  renderInventory();
+  renderMovements();
+  renderDashboard();
+  showToast('Mouvement enregistré.');
+}
+
+function renderMovements(){
+  const search = document.getElementById('mv-search').value.trim().toLowerCase();
+  const filter = document.getElementById('mv-filter').value;
+  const body = document.getElementById('movements-body');
+
+  let movements = [...state.movements].sort((a,b)=> new Date(b.date)-new Date(a.date));
+
+  movements = movements.filter(mv=>{
+    const item = state.items.find(i=>i.id===mv.itemId);
+    const matchSearch = !search || (item && item.name.toLowerCase().includes(search));
+    const matchType = filter === 'all' || mv.type === filter;
+    return matchSearch && matchType;
+  });
+
+  body.innerHTML = '';
+  if(movements.length===0){
+    body.innerHTML = `<tr><td colspan="7" class="empty-row">Aucun mouvement trouvé.</td></tr>`;
+    return;
+  }
+
+  movements.forEach(mv=>{
+    const item = state.items.find(i=>i.id===mv.itemId);
+    body.innerHTML += `<tr>
+      <td>${fmtDate(mv.date)}</td>
+      <td>${item ? item.name : '<em>Article supprimé</em>'}</td>
+      <td><span class="sku">${item ? item.sku : '—'}</span></td>
+      <td>${movementTypeLabel(mv.type)}</td>
+      <td><strong>${movementQtyLabel(mv)}</strong></td>
+      <td>${mv.note || '—'}</td>
+      <td>${mv.userName}</td>
+    </tr>`;
+  });
+}
+
+/* ===================== USERS (admin) ===================== */
+
+function renderUsers(){
+  const grid = document.getElementById('users-grid');
+  grid.innerHTML = '';
+  state.users.forEach(u=>{
+    const initials = u.name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+    grid.innerHTML += `<div class="user-card">
+      <div style="display:flex;align-items:center;gap:12px;">
+        <div style="width:38px;height:38px;border-radius:50%;background:var(--accent-soft);color:var(--accent-deep);display:flex;align-items:center;justify-content:center;font-weight:600;font-size:13px;flex-shrink:0;">${initials}</div>
+        <div>
+          <p class="u-name">${u.name}</p>
+          <p class="u-mail">${u.email}</p>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;">
+        <span class="role-badge ${u.role==='admin'?'role-admin':'role-user'}">${u.role==='admin'?'Admin':'Agent'}</span>
+        ${u.id !== state.currentUser.id ? `<button class="icon-btn" title="Supprimer" onclick="deleteUser('${u.id}')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14z" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>` : ''}
+      </div>
+    </div>`;
+  });
+}
+
+function openUserModal(){
+  document.getElementById('user-name').value = '';
+  document.getElementById('user-email').value = '';
+  document.getElementById('user-pass').value = '';
+  document.getElementById('user-role').value = 'user';
+  document.getElementById('user-modal').classList.add('open');
+}
+
+function saveUser(){
+  const name = document.getElementById('user-name').value.trim();
+  const email = document.getElementById('user-email').value.trim();
+  const pass = document.getElementById('user-pass').value;
+  const role = document.getElementById('user-role').value;
+
+  if(!name || !email || !pass){
+    showToast('Tous les champs sont obligatoires.');
+    return;
+  }
+  if(state.users.some(u=>u.email.toLowerCase()===email.toLowerCase())){
+    showToast('Cet e-mail est déjà utilisé.');
+    return;
+  }
+
+  state.users.push({id: uid('u'), name, email, password: pass, role});
+  closeModal('user-modal');
+  renderUsers();
+  showToast('Utilisateur créé.');
+}
+
+function deleteUser(userId){
+  if(!confirm('Supprimer cet utilisateur ?')) return;
+  state.users = state.users.filter(u=>u.id!==userId);
+  renderUsers();
+  showToast('Utilisateur supprimé.');
+}
+
+/* ===================== UTIL ===================== */
+
+function closeModal(id){
+  document.getElementById(id).classList.remove('open');
+}
+
+document.querySelectorAll('.modal-overlay').forEach(overlay=>{
+  overlay.addEventListener('click', e=>{
+    if(e.target === overlay) overlay.classList.remove('open');
+  });
+});
+
+let toastTimeout;
+function showToast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimeout);
+  toastTimeout = setTimeout(()=> t.classList.remove('show'), 2600);
+}
+</script>
+</body>
+</html>
